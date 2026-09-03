@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from test import inspect_export
+import inspect_export
 
 
 class ExportInventoryTests(unittest.TestCase):

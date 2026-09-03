@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 
-from test import inspect_package
+import inspect_package
 
 
 class PackageInspectionTests(unittest.TestCase):
