@@ -1,10 +1,10 @@
 # Boiler
 
-Cross-platform Steam for Godot C#, minus the boilerplate. Add the package, call `SteamClient.Init`, and Steam works on Windows, macOS (Intel and Apple Silicon), and Linux, in the editor and in exports, with no manual native setup.
+Boiler provides cross-platform Facepunch.Steamworks native loading for Godot C# on .NET 8. It selects the correct managed wrapper, copies the matching Steam native library, and registers the resolver automatically.
 
 ## Install
 
-```
+```sh
 dotnet add package TheDevRatt.Steam.Boiler
 ```
 
@@ -13,10 +13,14 @@ dotnet add package TheDevRatt.Steam.Boiler
 ```csharp
 using Steamworks;
 
-SteamClient.Init(480); // 480 = Spacewar, Valve's public test app
+SteamClient.Init(480); // Spacewar, Valve's public test app ID
 GD.Print($"Steam: {SteamClient.Name}");
 ```
 
-Boiler installs its native resolver automatically at startup, so there is nothing to wire up. You just use the normal Facepunch.Steamworks API.
+Boiler 0.3.2 bundles the official Facepunch.Steamworks 2.5.2 managed and native files for Windows x64, Linux x64, and macOS x64/arm64.
 
-You still need to be a Steamworks partner to ship a game on Steam. MIT licensed.
+> **SteamInput limitation:** Facepunch.Steamworks 2.5.2 can report zero controllers and retain stale controller handles after Steam shutdown and reinitialization. The explicit Steam Input initialization, shutdown, and cache-clearing fix is currently only on upstream `master`, not in an official release. Boiler stays on matched official release files.
+
+Pass the App ID directly to `SteamClient.Init(appId)`; Facepunch sets the process environment for local runs. Shipping requires Steamworks partner access and is subject to Valve's terms.
+
+Boiler and Facepunch.Steamworks are MIT licensed. The package includes the required Facepunch notice and identifies the Valve redistributable terms in `THIRD-PARTY-NOTICES.md`.

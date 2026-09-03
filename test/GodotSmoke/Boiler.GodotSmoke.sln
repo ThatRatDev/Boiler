@@ -1,0 +1,24 @@
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Boiler.GodotSmoke", "Boiler.GodotSmoke.csproj", "{A3487695-9DE5-495A-96C2-C61F0A5AAE7F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		ExportDebug|Any CPU = ExportDebug|Any CPU
+		ExportRelease|Any CPU = ExportRelease|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A3487695-9DE5-495A-96C2-C61F0A5AAE7F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A3487695-9DE5-495A-96C2-C61F0A5AAE7F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A3487695-9DE5-495A-96C2-C61F0A5AAE7F}.ExportDebug|Any CPU.ActiveCfg = ExportDebug|Any CPU
+		{A3487695-9DE5-495A-96C2-C61F0A5AAE7F}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
+		{A3487695-9DE5-495A-96C2-C61F0A5AAE7F}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
+		{A3487695-9DE5-495A-96C2-C61F0A5AAE7F}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

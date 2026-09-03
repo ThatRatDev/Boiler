@@ -7,25 +7,41 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+env:
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
 jobs:
-  # Build the package once and share the .nupkg with the smoke jobs.
   pack:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: '8.0.x'
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - name: Validate repository contracts
+        run: |
+          python test/validate_maintenance.py
+          python -m unittest discover -s test -p 'test_*.py' -v
       - name: Pack
-        run: dotnet pack src/TheDevRatt.Steam.Boiler/TheDevRatt.Steam.Boiler.csproj -c Release -o artifacts
-      - uses: actions/upload-artifact@v4
+        run: dotnet pack src/TheDevRatt.Steam.Boiler/TheDevRatt.Steam.Boiler.csproj -c Release -o artifacts -p:RepositoryCommit=${{ github.sha }}
+      - name: Inspect package
+        shell: bash
+        run: python test/inspect_package.py artifacts/TheDevRatt.Steam.Boiler.0.3.2.nupkg 0.3.2 ${{ github.sha }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: nupkg
           path: artifacts/*.nupkg
+          retention-days: 7
 
-  # Prove the bundled native loads at runtime on every platform. macOS is also
-  # proven through Godot itself; this closes the Windows and Linux gap.
-  smoke:
+  console-smoke:
     needs: pack
     strategy:
       fail-fast: false
@@ -33,30 +49,85 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: '8.0.x'
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: nupkg
           path: artifacts
-      - name: Run smoke consumer
+      - name: Run console smoke test
         shell: bash
         run: |
           set -euo pipefail
-          out=$(dotnet run --project test/Smoke/Smoke.csproj -c Release)
-          echo "$out"
-          echo "$out" | grep -q "NATIVE-OK" || { echo "::error::native did not load on ${{ matrix.os }}"; exit 1; }
+          output=$(dotnet run --project test/Smoke/Smoke.csproj -c Release)
+          echo "$output"
+          grep -q "NATIVE-OK" <<< "$output"
 
-  # Guard against a managed/native version mismatch (the SteamFriends v017 vs v018
-  # class of bug). All three natives ship from one Facepunch release, so checking
-  # one against the managed wrapper's required accessors validates the release.
+  godot-smoke-and-export:
+    needs: pack
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux
+            preset: Linux x64
+            export: BoilerGodotSmoke.x86_64
+          - os: windows-latest
+            target: windows
+            preset: Windows x64
+            export: BoilerGodotSmoke.exe
+          - os: macos-latest
+            target: macos
+            preset: macOS Universal
+            export: BoilerGodotSmoke.app
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: nupkg
+          path: artifacts
+      - uses: chickensoft-games/setup-godot@c233594225991af5aec714e52457cc76d6df8fa2 # v2
+        with:
+          version: 4.7.2
+          use-dotnet: true
+          include-templates: true
+      - name: Verify Godot version
+        shell: bash
+        run: godot --version | grep -q '^4\.7\.2\.stable'
+      - name: Build and run in Godot
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore test/GodotSmoke/Boiler.GodotSmoke.csproj
+          dotnet build test/GodotSmoke/Boiler.GodotSmoke.csproj -c Debug --no-restore
+          output=$(godot --headless --path test/GodotSmoke 2>&1)
+          echo "$output"
+          grep -q "Native resolver registered" <<< "$output"
+          grep -q "GODOT-NATIVE-OK" <<< "$output"
+      - name: Export and inspect ${{ matrix.target }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/godot-export
+          output_path="${{ github.workspace }}/artifacts/godot-export/${{ matrix.export }}"
+          godot --headless --path test/GodotSmoke --export-release "${{ matrix.preset }}" "$output_path"
+          python test/inspect_export.py "${{ matrix.target }}" artifacts/godot-export
+
   parity:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Accessor parity (managed wrapper vs bundled native)
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Check managed and native accessor parity
         shell: bash
         run: |
           set -euo pipefail
@@ -64,19 +135,15 @@ jobs:
           managed="$base/managed/Facepunch.Steamworks.Posix.dll"
           dylib="$base/native/osx/libsteam_api.dylib"
 
-          # Accessors the managed wrapper P/Invokes...
           strings "$managed" | grep -oE 'SteamAPI_I?Steam[A-Za-z]+_v[0-9]+' | sort -u > needs_all.txt
-          # ...minus ISteamAppList, which the wrapper declares but Valve's client
-          # redistributable does not export (a restricted interface no normal game
-          # calls). It is absent from every Facepunch native by design.
+          # Valve omits ISteamAppList from client redistributables although Facepunch declares it.
           grep -vE 'SteamAPI_SteamAppList_v[0-9]+' needs_all.txt > needs.txt
-
           nm -gjU "$dylib" | sed 's/^_//' | grep -oE 'SteamAPI_I?Steam[A-Za-z]+_v[0-9]+' | sort -u > has.txt
 
           missing=$(comm -23 needs.txt has.txt || true)
           if [ -n "$missing" ]; then
-            echo "::error::native is missing accessors the managed wrapper needs:"
+            echo "::error::native is missing managed wrapper accessors:"
             echo "$missing"
             exit 1
           fi
-          echo "Parity OK, native exports all $(wc -l < needs.txt | tr -d ' ') required accessors."
+          echo "Parity OK: $(wc -l < needs.txt | tr -d ' ') required accessors found."

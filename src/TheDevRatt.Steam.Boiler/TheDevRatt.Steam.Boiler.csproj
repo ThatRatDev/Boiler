@@ -9,17 +9,21 @@
     <AssemblyName>TheDevRatt.Steam.Boiler</AssemblyName>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
-    <!-- Package identity -->
     <PackageId>TheDevRatt.Steam.Boiler</PackageId>
-    <Version>0.3.0</Version>
+    <Version>0.3.2</Version>
+    <FacepunchVersion>2.5.2</FacepunchVersion>
     <Authors>TheDevRatt</Authors>
     <Product>Boiler</Product>
-    <Description>Boiler, cross-platform Steam for Godot C#. Bundles a version-matched Facepunch.Steamworks managed + native pair (Windows, macOS x64/arm64, Linux) and auto-installs a DllImport resolver so Steam loads in the Godot editor and in exports. No boilerplate.</Description>
+    <Description>Cross-platform native loading for Facepunch.Steamworks in Godot C# projects.</Description>
     <PackageTags>godot;steam;steamworks;facepunch;native;cross-platform;multiplayer</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.nuget.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/TheDevRatt/Boiler</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/TheDevRatt/Boiler.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryCommit>$(SourceRevisionId)</RepositoryCommit>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
 
-    <!-- Assets are delivered via MSBuild props/targets, not NuGet dependencies. -->
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     <IncludeBuildOutput>true</IncludeBuildOutput>
     <NoWarn>$(NoWarn);NU5100;NU5128</NoWarn>
@@ -27,18 +31,15 @@
 
   <ItemGroup>
     <None Include="..\..\README.nuget.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" />
 
-    <!-- Consumer-imported MSBuild logic: references the right Facepunch managed
-         assembly, copies the right native, and injects the auto-init source. -->
     <None Include="build\TheDevRatt.Steam.Boiler.props" Pack="true" PackagePath="build\" />
     <None Include="build\TheDevRatt.Steam.Boiler.targets" Pack="true" PackagePath="build\" />
     <None Include="build\BoilerAutoInit.cs" Pack="true" PackagePath="build\" />
 
-    <!-- Facepunch managed assemblies (both platform builds), from one release. -->
     <None Include="steam\managed\Facepunch.Steamworks.Win64.dll" Pack="true" PackagePath="steam\managed\" />
     <None Include="steam\managed\Facepunch.Steamworks.Posix.dll" Pack="true" PackagePath="steam\managed\" />
 
-    <!-- Valve native runtime, per platform. -->
     <None Include="steam\native\win-x64\steam_api64.dll" Pack="true" PackagePath="steam\native\win-x64\" />
     <None Include="steam\native\osx\libsteam_api.dylib" Pack="true" PackagePath="steam\native\osx\" />
     <None Include="steam\native\linux-x64\libsteam_api.so" Pack="true" PackagePath="steam\native\linux-x64\" />

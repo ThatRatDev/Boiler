@@ -7,25 +7,15 @@ using System.Runtime.InteropServices;
 namespace TheDevRatt.Steam.Boiler;
 
 /// <summary>
-/// Makes Facepunch.Steamworks' native library load correctly under Godot on
-/// Windows, macOS (x64 + arm64), and Linux.
-///
-/// Godot's .NET host does not honour NuGet's <c>runtimes/&lt;rid&gt;/native</c>
-/// convention the way a normal app does, so the native <c>steam_api</c> library
-/// is not found by the default P/Invoke probe. This installs a
-/// <see cref="NativeLibrary.SetDllImportResolver"/> that loads the correct
-/// binary (placed next to the assemblies by this package's MSBuild targets).
-///
-/// <see cref="Register"/> is invoked automatically at startup via a module
-/// initializer the package injects into the consuming assembly, so there is
-/// nothing to call by hand. It remains public for manual/early invocation.
+/// Resolves Facepunch.Steamworks native imports to the platform library copied
+/// by Boiler's MSBuild targets. A generated module initializer calls
+/// <see cref="Register"/> before consumer code runs.
 /// </summary>
 public static class SteamNative
 {
     private static bool _registered;
 
-    /// <summary>Installs the native resolver for Facepunch's platform assembly.
-    /// Called automatically at startup; idempotent and safe to call again.</summary>
+    /// <summary>Registers the native resolver. Repeated calls have no effect.</summary>
     public static void Register()
     {
         if (_registered)
@@ -35,8 +25,7 @@ public static class SteamNative
 
         _registered = true;
 
-        // Facepunch ships a distinct managed assembly per platform (Win64 vs
-        // Posix); the resolver must be attached to whichever one is loaded.
+        // Facepunch uses separate Windows and Posix assemblies with different imports.
         string assemblyName = OperatingSystem.IsWindows()
             ? "Facepunch.Steamworks.Win64"
             : "Facepunch.Steamworks.Posix";
@@ -93,10 +82,9 @@ public static class SteamNative
     {
         string file = NativeFileName();
 
-        // Placed here by this package's MSBuild targets, in editor and exports.
         yield return Path.Combine(AppContext.BaseDirectory, file);
 
-        // Fallback: beside the running executable (packaged/.app layouts).
+        // Export layouts can separate the executable from the managed assembly directory.
         string? exeDir = Path.GetDirectoryName(Environment.ProcessPath);
         if (!string.IsNullOrEmpty(exeDir))
         {

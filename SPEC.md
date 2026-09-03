@@ -1,225 +1,52 @@
-# Spec: Cross-Platform Steam Native Loading for Godot C#
+# Boiler technical design
 
-**Status:** Draft, core decisions resolved
-**Author:** TheDevRatt
-**Package:** `TheDevRatt.Steam.Boiler` ("Boiler"; personal namespace first, propose to Chickensoft later if it proves useful)
-**Date:** 2026-07-09
-**Reference implementation:** Eldritch Engine (`Sync/Steam/`, `Directory.Build.props`)
+**Status:** Implemented
+**Package:** `TheDevRatt.Steam.Boiler`
+**Runtime:** .NET 8 and Godot 4 C#
 
----
+## Scope
 
-## 1. Summary
+Boiler is a native-loading package for Facepunch.Steamworks. It is not a Steam API wrapper, multiplayer transport, or project template.
 
-Getting Steam to work in a Godot 4 **C#** project is reliable on Windows and
-broken-by-default everywhere else. The binaries and wrappers exist, but nothing
-makes them *load correctly inside Godot* across platforms. This spec proposes a
-small Chickensoft package that closes that gap: it delivers a **version-matched
-Steam managed+native pairing** plus the **Godot-specific loader glue** that makes
-the native library resolve in both the editor and exported builds, on Windows,
-macOS (Intel + Apple Silicon), and Linux.
+A Steam integration has two platform-sensitive layers:
 
-This is **not** a Steam API wrapper and **not** a multiplayer transport. It is the
-plumbing layer that makes an existing wrapper (Facepunch.Steamworks) actually load
-under Godot, cross-platform.
+| Layer | Files |
+| --- | --- |
+| Managed wrapper | `Facepunch.Steamworks.Win64.dll` or `Facepunch.Steamworks.Posix.dll` |
+| Native library | `steam_api64.dll`, `libsteam_api.so`, or `libsteam_api.dylib` |
 
----
+The managed wrapper calls versioned Steam interface accessors through P/Invoke. A wrapper and native library from different SDK generations can therefore load but fail on a missing entry point.
 
-## 2. Background: the two-layer architecture
+## Why Godot needs a loader
 
-A Steam integration in .NET has two independently-versioned halves:
+NuGet normally places native dependencies under `runtimes/<rid>/native/`. Godot editor builds commonly have no runtime identifier, so those files are not copied beside the game assemblies. Godot's host load context also does not probe that NuGet layout like a normal `dotnet` application. Boiler therefore performs both jobs explicitly: MSBuild places the target native in the output, then a resolver loads it from the running application's directory.
 
-| Layer | What it is | Platform-specific? |
-|---|---|---|
-| **Managed** | The C# wrapper you call (`SteamClient.Init`, …). Thin P/Invoke shim. | Yes, Win64 vs Posix builds differ in the native name they call and in struct packing. |
-| **Native** | Valve's C++ `steam_api` engine (`steam_api64.dll` / `libsteam_api.dylib` / `.so`). | Yes, one binary per OS/arch. |
+## Package behavior
 
-The managed layer reaches the native layer through P/Invoke, where the native
-library name is a **compile-time constant** and the required interface versions
-(e.g. `SteamAPI_SteamFriends_v017`) are baked into the managed build.
+The package keeps both managed variants and all three desktop native libraries under `steam/`. Its imported MSBuild files:
 
----
+1. Select the Windows or Posix managed reference from the target runtime identifier, falling back to the build host when no identifier is set.
+2. Copy only the target platform's native library to the build output.
+3. Compile a module initializer into the consumer assembly.
 
-## 3. Root causes (the two real problems)
+The initializer calls `SteamNative.Register()`. The resolver attaches to the selected Facepunch assembly and loads the native library from the application base directory or executable directory.
 
-### 3.1 Godot ignores NuGet's native-loading convention
+## Upstream policy
 
-NuGet ships per-platform natives under `runtimes/<rid>/native/`. A normal .NET app
-resolves these automatically. **Godot does not**, in the case that matters most:
+Version 0.3.2 pins the official Facepunch.Steamworks 2.5.2 release. Its two managed assemblies and three native libraries are kept as one matched set. Upgrades replace and validate all five files together from an official release archive. Unreleased upstream binaries are not substituted into a package that claims a stable release.
 
-- **Editor / `dotnet build` (no RID):** `runtimes/` natives are never copied to
-  the build output, so the file simply isn't where the game runs.
-- **Load context:** even when present, Godot's host doesn't probe `runtimes/` the
-  way `dotnet run` does.
+Facepunch.Steamworks 2.5.2 has a known SteamInput lifecycle defect. It does not explicitly initialize or shut down Steam Input and does not clear cached controller handles. This can produce zero detected controllers or stale handles after Steam shutdown and reinitialization. The upstream fix has not yet been published in a stable release.
 
-Result: a Godot C# project that references a correct, cross-platform native
-package still fails to load Steam. **A resolver + an editor-time copy are
-required.** (Verified: the standard package alone does not load in the Godot 4.7
-editor.)
+## Validation
 
-### 3.2 Managed ↔ native version pairing is fragile and unguarded
+CI is configured to perform these checks:
 
-The native must export the exact interface accessor versions the managed wrapper
-P/Invokes. These drift between Steam SDK releases. Mixing a managed wrapper and a
-native binary from different SDK generations fails at `SteamClient.Init` with
-`entry point 'SteamAPI_Steam<Interface>_v0NN' not found`.
+- Pack the source version and inspect package metadata and assets.
+- Run a console native-load smoke test on Windows, Linux, and macOS.
+- Run a Godot 4.7.2 .NET headless smoke scene on each host without requiring Steam credentials.
+- Export Windows x64, Linux x64, and macOS universal builds on their native runners.
+- Reject exported builds with a missing, duplicate, or foreign Steam managed/native binary.
+- Verify both x64 and arm64 slices in the exported macOS executable and Steam dylib.
+- Compare the Posix wrapper's required interface accessors with the bundled dylib exports.
 
-Observed concretely: the `Facepunch.Steamworks 2.5.2` managed wrapper needs
-`SteamAPI_SteamFriends_v017`. The `Facepunch.Steamworks.Dll` **1.62** native ships
-`v018` and breaks; **1.61** ships `v017` and works. No published native package
-version is a *perfect* superset of the 2.5.2 wrapper's 32 accessors, 1.61 is the
-closest and still lacks one unused accessor (`SteamAppList_v001`).
-
-**Implication:** naively gluing "latest managed" to "latest native" is a coin
-flip. The pairing must be *curated and pinned*.
-
----
-
-## 4. Evidence (validated on real hardware)
-
-On an Apple Silicon Mac, Godot 4.7 stable mono, arm64-native process:
-
-- With the resolver + editor-copy and a **matched** native (1.61):
-  `[SteamNetwork] Online as <user> (<id>)`, Steam initializes and authenticates.
-- With a **mismatched** native (1.62): init fails on `SteamAPI_SteamFriends_v017`.
-- The native (`libsteam_api.dylib`) loads only because the resolver points at it;
-  the default probe does not find it in the editor build.
-- 252/252 unit tests pass with Steam correctly dormant under `--run-tests`.
-
-Both root causes are therefore demonstrated, not theorized, and both are solvable.
-
----
-
-## 5. Prior art & the gap
-
-| Package | Managed | Native | Cross-platform | Godot resolver | Verdict |
-|---|---|---|---|---|---|
-| `Facepunch.Steamworks` (NuGet) | Win64 only | loose Win dll | ❌ | ❌ | Windows-only |
-| `Facepunch.Steamworks.Dll` | none | all platforms, `runtimes/` | ✅ (binaries) | ❌ | natives only; no glue; unpinned pairing |
-| `Facepunch.Steamworks.Library` | none | Win only | ❌ | ❌ | Windows-only |
-| `TheProjectPioneer.Godot.Steam` | Win64 | Win only | ❌ | ❌ (not needed on Win) | Godot MultiplayerPeer, Windows-only |
-| `Steamworks.NET` | cross-platform | separate | partial | ❌ | different API; still no Godot glue |
-
-**The gap:** no package delivers *cross-platform Steam that actually loads in
-Godot C#*. The pieces exist; the Godot-specific loader glue + curated pairing do
-not. This is the wedge.
-
----
-
-## 6. Proposed solution
-
-A Chickensoft package (working name **`Chickensoft.GodotSteam`** or
-`Chickensoft.Steamworks.Godot`) that provides:
-
-### 6.1 What's in the box
-
-Built on **Facepunch.Steamworks**, sourcing **both halves from a single upstream
-Facepunch GitHub release** and **bundling** them in the package:
-
-1. **The managed wrapper**, both platform builds, `Facepunch.Steamworks.Win64.dll`
-   and `Facepunch.Steamworks.Posix.dll`, taken from Facepunch release *X*.
-2. **The native binaries** for every platform, `steam_api64.dll`,
-   `libsteam_api.dylib` (universal), `libsteam_api.so`, taken from the **same**
-   release *X*'s `redistributable_bin`.
-3. **The Godot loader glue:**
-   - An MSBuild `.targets` that selects the right managed assembly per target and,
-     on a no-RID (editor) build, copies the host platform's native beside the
-     built assemblies. (RID builds place it the same way.)
-   - A `NativeLibrary.SetDllImportResolver` registered via a `[ModuleInitializer]`
-     so the native resolves with **zero consumer code**.
-4. **Docs** for the macOS export path (codesign / notarization of the bundled
-   dylib), the one place a resolver can't help.
-
-Because both halves come from the *same release*, they are built against the same
-Steam SDK and their interface versions **cannot drift apart**, see §6.3.
-
-### 6.2 Consumer experience
-
-```
-dotnet add package Chickensoft.GodotSteam
-```
-
-That is the entire opt-in. Build → correct native placed; run → resolver loads it;
-Steam works in the editor and in Windows/macOS/Linux exports. No flags, no manual
-DLL placement, no per-project MSBuild.
-
-### 6.3 Why this shape
-
-- **Single-release sourcing neutralizes root cause #2.** The version-pairing
-  fragility (§3.2) exists *only* when the managed wrapper and native come from
-  different origins, which is exactly the trap the reference impl hit (2.5.2
-  managed + a separately-versioned native package → the 1.61/1.62 `SteamFriends`
-  break). Taking both halves from one Facepunch release makes them matched **by
-  construction**: they were compiled against the same SDK, so accessor drift is
-  structurally impossible, not merely tested against. The §9 parity check becomes
-  a belt-and-suspenders guard rather than the primary defense.
-- **Bundling** guarantees offline, deterministic builds (no build-time network)
-  and keeps the matched pair together. Valve's redistributables are shipped by
-  every wrapper already (Facepunch, Steamworks.NET, GodotSteam); bundling is the
-  community norm, and under a personal namespace it carries the same posture they
-  do.
-- **The resolver is the moat:** it is the one thing no existing package does
-  cross-platform, and it is provably required (§4).
-
----
-
-## 7. Non-goals
-
-- **Not a Steam API wrapper.** It rides on Facepunch (or Steamworks.NET); it does
-  not reimplement P/Invoke bindings or fight the SDK-version treadmill at the API
-  level.
-- **Not a multiplayer transport / `MultiplayerPeer`.** That is a separate,
-  later project (Manifold). This package is the load layer Manifold would sit on.
-- **Not a Godot project scaffolder.** Templates/`dotnet new` are orthogonal; they
-  may reference this package but do not contain it.
-
----
-
-## 8. Decisions
-
-1. **Bundle the native binaries.** Shipped inside the package, offline,
-   deterministic, no build-time network. (Accepts a ~2–3 MB package; fine.)
-2. **Base wrapper: Facepunch.** The nicer API; the game code already targets it.
-   Its managed wrapper isn't on NuGet cross-platform, which is *why* we bundle it
-   (decision 1) rather than take a package dependency.
-3. **Source both halves from one upstream Facepunch release.** The managed
-   (`netstandard2.1` Win64 + Posix) and the native (`redistributable_bin` for
-   win/osx/linux) both come from the *same* Facepunch GitHub release zip. This is
-   the decision that makes the pairing correct by construction (§6.3), no more
-   accessor-matching roulette between independently-versioned packages.
-4. **Namespace: `TheDevRatt.*` first.** Incubate under the author's personal
-   namespace/repo, matching Chickensoft conventions (package template, GoDotTest,
-   CI) so adoption is a formality. Propose transfer to Chickensoft later, only if
-   it proves useful.
-
-### Open (deferred, non-blocking)
-
-- Which specific Facepunch release to pin as *X* for the first cut (whichever is
-  latest-stable with a universal arm64 macOS dylib; 2.5.2 is a known-good
-  candidate).
-- Whether to also expose a knob for consumers who ship their own Steam SDK build.
-
----
-
-## 9. Validation plan
-
-- CI matrix: build for `win-x64`, `linux-x64`, `osx` (universal). Assert the
-  correct native lands in output and accessor parity holds (an automated version
-  of the `nm`/`strings` diff used to catch the 1.62 break).
-- A headless Godot smoke test per platform that boots, calls `SteamClient.Init`,
-  and asserts either "online" (Steam present) or a clean "Steam unavailable"
-  warning, never a `DllNotFound` / missing-entry-point.
-- Editor (no-RID) and export (RID) both covered, since they exercise different
-  native-placement paths.
-
----
-
-## 10. Appendix: reference implementation
-
-Eldritch Engine already implements every mechanism this package would generalize:
-
-- `Directory.Build.props`, per-platform managed selection, `Facepunch.Steamworks.Dll`
-  pinned to 1.61.0, `CopySteamNativeForEditor` target.
-- `Sync/Steam/SteamNetwork.cs`, `SetDllImportResolver` + candidate-path search.
-- `docs/steam-cross-platform.md`, the platform/version rationale and macOS signing.
-
-It is, in effect, an unpackaged prototype of §6.
+A scheduled workflow compares the pinned Facepunch version with the latest stable GitHub release. It creates or updates one open issue only when the upstream stable version is newer.

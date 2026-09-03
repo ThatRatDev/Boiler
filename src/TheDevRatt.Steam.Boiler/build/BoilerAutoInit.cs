@@ -1,10 +1,5 @@
-// Injected into the consuming assembly by the Boiler NuGet package (see
-// TheDevRatt.Steam.Boiler.props). The module initializer runs once, at assembly
-// load, before any game code, and installs Steam's native library resolver, so
-// consumers get cross-platform Steam with zero setup code.
-
-// CA2255: using [ModuleInitializer] from a library is exactly the point here,
-// it is how the package installs its resolver without any consumer code.
+// This file is compiled into the consumer by TheDevRatt.Steam.Boiler.props.
+// CA2255 is suppressed because automatic resolver registration is intentional.
 #pragma warning disable CA2255
 
 namespace TheDevRatt.Steam.Boiler.Generated

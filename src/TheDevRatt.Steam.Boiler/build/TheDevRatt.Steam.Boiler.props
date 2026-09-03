@@ -1,12 +1,6 @@
 <Project>
 
-  <!-- Imported early into the consumer's build. Does two things:
-       1. references the Facepunch managed assembly matching the target platform
-          (Facepunch ships a distinct assembly per platform), and
-       2. injects a module initializer into the consumer's own assembly so the
-          native resolver is installed automatically at startup, no code needed.
-       RuntimeIdentifier (set by `godot export` / `dotnet publish -r`) wins;
-       otherwise the host OS decides. -->
+  <!-- RuntimeIdentifier selects export assets. Editor builds fall back to the host OS. -->
 
   <PropertyGroup>
     <_BoilerPkgRoot>$(MSBuildThisFileDirectory)..</_BoilerPkgRoot>
@@ -27,8 +21,6 @@
     </Reference>
   </ItemGroup>
 
-  <!-- Compiles a [ModuleInitializer] into the consumer assembly; it runs at
-       startup (before any game code) and calls SteamNative.Register(). -->
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)BoilerAutoInit.cs" />
   </ItemGroup>

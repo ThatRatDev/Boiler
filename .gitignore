@@ -2,6 +2,8 @@
 bin/
 obj/
 *.user
+__pycache__/
+.godot/
 
 # Local NuGet feed produced by `dotnet pack`
 artifacts/

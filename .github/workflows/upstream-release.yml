@@ -1,0 +1,75 @@
+name: Facepunch release monitor
+
+on:
+  schedule:
+    - cron: '17 9 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: facepunch-release-monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ISSUE_TITLE: Facepunch.Steamworks update available
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Compare stable releases
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          pinned=$(python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          root = ET.parse("src/TheDevRatt.Steam.Boiler/TheDevRatt.Steam.Boiler.csproj").getroot()
+          print(root.findtext(".//FacepunchVersion", "").strip())
+          PY
+          )
+          latest=$(gh api repos/Facepunch/Facepunch.Steamworks/releases/latest --jq '.tag_name | ltrimstr("v")')
+
+          comparison=$(python3 - "$pinned" "$latest" <<'PY'
+          import re
+          import sys
+
+          def stable(value):
+              if not re.fullmatch(r"[0-9]+(?:\.[0-9]+)+", value):
+                  raise SystemExit(f"unsupported stable version: {value}")
+              return tuple(int(part) for part in value.split("."))
+
+          print("newer" if stable(sys.argv[2]) > stable(sys.argv[1]) else "current")
+          PY
+          )
+
+          if [ "$comparison" = current ]; then
+            echo "Pinned Facepunch.Steamworks $pinned is current (latest stable: $latest)."
+            exit 0
+          fi
+
+          body=$(cat <<EOF
+          Boiler pins Facepunch.Steamworks $pinned. The latest stable release is $latest.
+
+          Release: https://github.com/Facepunch/Facepunch.Steamworks/releases/tag/$latest
+
+          Update both managed wrappers and all native libraries from the same official release, then run the package, Godot, export inventory, and accessor parity checks.
+          EOF
+          )
+          issue=$(gh issue list --state open --limit 100 --json number,title --jq "map(select(.title == env.ISSUE_TITLE)) | .[0].number // empty")
+          if [ -n "$issue" ]; then
+            current_body=$(gh issue view "$issue" --json body --jq '.body')
+            if [ "$current_body" = "$body" ]; then
+              echo "Issue #$issue already describes Facepunch.Steamworks $latest."
+            else
+              gh issue edit "$issue" --title "$ISSUE_TITLE" --body "$body"
+              echo "Updated issue #$issue."
+            fi
+          else
+            gh issue create --title "$ISSUE_TITLE" --body "$body"
+          fi

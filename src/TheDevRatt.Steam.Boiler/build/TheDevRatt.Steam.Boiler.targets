@@ -1,9 +1,6 @@
 <Project>
 
-  <!-- Imported late into the consumer's build. Copies the current target's Valve
-       native binary next to the built assemblies, where SteamNative's resolver
-       looks. Copies ONLY the target's binary so a macOS .app isn't burdened with
-       foreign, unsigned libraries at notarization time. -->
+  <!-- Copy only the target native. Foreign binaries complicate macOS signing. -->
 
   <PropertyGroup>
     <_BoilerPkgRoot>$(MSBuildThisFileDirectory)..</_BoilerPkgRoot>

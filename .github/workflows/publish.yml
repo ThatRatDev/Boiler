@@ -1,66 +1,107 @@
 name: Publish
 
-# Publishes TheDevRatt.Steam.Boiler to NuGet.org using Trusted Publishing (OIDC).
-# No API key is stored: nuget.org issues a short-lived key at run time after
-# verifying this workflow against the trusted publishing policy on nuget.org
-# (Owner: TheDevRatt, Repository: Boiler, Workflow File: publish.yml).
-#
-# The version comes from the release tag (tag v0.3.1 publishes 0.3.1), so you
-# only bump the tag and the README, never the csproj. Manual runs can pass a
-# version input instead.
 on:
   release:
     types: [published]
   workflow_dispatch:
-    inputs:
-      version:
-        description: "Version to publish, e.g. 0.3.1. Leave blank to use the csproj version."
-        required: false
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
-      id-token: write   # required: lets GitHub issue the OIDC token
+      actions: read
+      id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: '8.0.x'
 
       - name: Determine version
-        id: ver
+        id: version
         shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            v="${{ github.event.release.tag_name }}"
-            v="${v#v}"    # strip a leading v: v0.3.1 -> 0.3.1
+          set -euo pipefail
+          project_version=$(python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          root = ET.parse("src/TheDevRatt.Steam.Boiler/TheDevRatt.Steam.Boiler.csproj").getroot()
+          print(root.findtext(".//Version", "").strip())
+          PY
+          )
+          if [ "$GITHUB_EVENT_NAME" = release ]; then
+            version="${RELEASE_TAG#v}"
           else
-            v="${{ github.event.inputs.version }}"
+            version="$project_version"
           fi
-          echo "version=$v" >> "$GITHUB_OUTPUT"
-          echo "Publishing version: ${v:-<csproj default>}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Invalid package version: $version"
+            exit 1
+          fi
+          if [ "$version" != "$project_version" ]; then
+            echo "::error::Release version $version does not match project version $project_version."
+            exit 1
+          fi
+          source_commit=$(git rev-parse HEAD)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "source_commit=$source_commit" >> "$GITHUB_OUTPUT"
+          echo "Package version: $version ($source_commit)"
+
+      - name: Verify source commit
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: ${{ steps.version.outputs.source_commit }}
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$SOURCE_COMMIT" origin/main; then
+            echo "::error::Publish source is not reachable from origin/main."
+            exit 1
+          fi
+          successful_runs=$(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$SOURCE_COMMIT&status=completed&per_page=100" \
+            --jq '[.workflow_runs[] | select(.conclusion == "success")] | length')
+          if [ "$successful_runs" -lt 1 ]; then
+            echo "::error::No successful CI run exists for $SOURCE_COMMIT."
+            exit 1
+          fi
 
       - name: Pack
         shell: bash
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.version }}
+          SOURCE_COMMIT: ${{ steps.version.outputs.source_commit }}
         run: |
-          args=""
-          if [ -n "${{ steps.ver.outputs.version }}" ]; then
-            args="-p:Version=${{ steps.ver.outputs.version }}"
-          fi
-          dotnet pack src/TheDevRatt.Steam.Boiler/TheDevRatt.Steam.Boiler.csproj -c Release -o artifacts $args
+          set -euo pipefail
+          dotnet pack src/TheDevRatt.Steam.Boiler/TheDevRatt.Steam.Boiler.csproj \
+            -c Release -o artifacts \
+            "-p:Version=$PACKAGE_VERSION" \
+            "-p:RepositoryCommit=$SOURCE_COMMIT"
 
-      - name: NuGet login (exchange OIDC token for a short-lived API key)
-        uses: NuGet/login@v1
+      - name: Inspect package
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.version }}
+          SOURCE_COMMIT: ${{ steps.version.outputs.source_commit }}
+        run: python3 test/inspect_package.py "artifacts/TheDevRatt.Steam.Boiler.$PACKAGE_VERSION.nupkg" "$PACKAGE_VERSION" "$SOURCE_COMMIT"
+
+      - name: Authenticate to NuGet.org
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
         id: login
         with:
           user: ${{ secrets.NUGET_USER }}
 
-      - name: Push
+      - name: Publish package
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
         run: >
           dotnet nuget push artifacts/*.nupkg
-          --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
+          --api-key "$NUGET_API_KEY"
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
