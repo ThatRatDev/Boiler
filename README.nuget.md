@@ -23,6 +23,6 @@ Boiler 0.4.0 bundles the official Facepunch.Steamworks 2.5.2 managed and native 
 
 > **SteamInput limitation:** Facepunch.Steamworks 2.5.2 can report zero controllers and retain stale controller handles after Steam shutdown and reinitialization. The explicit Steam Input initialization, shutdown, and cache-clearing fix is currently only on upstream `master`, not in an official release. Boiler stays on matched official release files.
 
-Pass the App ID directly to `SteamClient.Init(appId)`; Facepunch sets the process environment for local runs. Shipping requires Steamworks partner access and is subject to Valve's terms.
+On macOS and Linux, `SteamClient.Init(appId)` alone fails outside Steam with `No appID found`; during development, put a `steam_appid.txt` containing the App ID in the directory the game is launched from. Shipping requires Steamworks partner access and is subject to Valve's terms.
 
 Boiler and Facepunch.Steamworks are MIT licensed. The package includes the required Facepunch notice and identifies the Valve redistributable terms in `THIRD-PARTY-NOTICES.md`.

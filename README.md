@@ -30,7 +30,7 @@ dotnet add package ThatRatDev.Steam.Boiler
 
 If you call `SteamNative.Register()` explicitly, update `using TheDevRatt.Steam.Boiler;` to `using ThatRatDev.Steam.Boiler;`.
 
-Pass the App ID directly to `SteamClient.Init(appId)`; Facepunch sets the process environment for local runs. Shipping on Steam requires Steamworks partner access and compliance with Valve's terms.
+On Windows, `SteamClient.Init(appId)` is enough to run outside Steam. On macOS and Linux it is not: Facepunch passes the App ID through `Environment.SetEnvironmentVariable`, which .NET does not expose to native code there, so Steam fails with `No appID found`. During development, put a `steam_appid.txt` containing just the App ID in the directory the game is launched from (the project folder for `godot --path`). Games launched by the Steam client don't need it, and it should not ship. Shipping on Steam requires Steamworks partner access and compliance with Valve's terms.
 
 ## Peer-to-peer example
 
@@ -50,6 +50,8 @@ public partial class SteamP2P : Node
 {
     private EchoHost _host;
     private EchoClient _client;
+    private ulong _hostId; // 0 = act as host
+    private bool _started;
 
     public override void _Ready()
     {
@@ -58,22 +60,32 @@ public partial class SteamP2P : Node
         SteamNetworkingUtils.InitRelayNetworkAccess();
 
         string connect = Array.Find(OS.GetCmdlineUserArgs(), arg => arg.StartsWith("--connect="));
-        if (connect == null)
+        if (connect != null)
         {
-            _host = SteamNetworkingSockets.CreateRelaySocket<EchoHost>();
-            GD.Print($"Hosting as {SteamClient.SteamId}");
-        }
-        else
-        {
-            ulong hostId = ulong.Parse(connect.Substring("--connect=".Length));
-            _client = SteamNetworkingSockets.ConnectRelay<EchoClient>(hostId);
-            GD.Print($"Connecting to {hostId}");
+            _hostId = ulong.Parse(connect.Substring("--connect=".Length));
         }
     }
 
     public override void _Process(double delta)
     {
         SteamClient.RunCallbacks();
+
+        // Relay sockets fail until Steam's relay network is ready.
+        if (!_started && SteamNetworkingUtils.Status == SteamNetworkingAvailability.Current)
+        {
+            _started = true;
+            if (_hostId == 0)
+            {
+                _host = SteamNetworkingSockets.CreateRelaySocket<EchoHost>();
+                GD.Print($"Hosting as {SteamClient.SteamId}");
+            }
+            else
+            {
+                _client = SteamNetworkingSockets.ConnectRelay<EchoClient>(_hostId);
+                GD.Print($"Connecting to {_hostId}");
+            }
+        }
+
         _host?.Receive();
         _client?.Receive();
     }
@@ -117,9 +129,9 @@ public class EchoClient : ConnectionManager
 }
 ```
 
-To try it, run each side on a separate machine, logged into a different Steam account. One account can't connect to itself, and Spacewar (480) is free to every account.
+To try it, run each side on a separate machine, logged into a different Steam account. Steam only lets an account connect to itself inside a single process, so two copies on one account fail with `Invalid Connection`. Spacewar (480) is free to every account. On macOS and Linux, add a `steam_appid.txt` containing `480` first (see above).
 
-1. On the host, run the project normally. It prints `Hosting as <SteamID64>`.
+1. On the host, run the project normally. After a few seconds, once the relay network is ready, it prints `Hosting as <SteamID64>`.
 2. On the client, pass that ID after `--`, for example `godot --path . -- --connect=7656119...` or `MyGame.exe -- --connect=7656119...`.
 
 The client sends a greeting and the host echoes it back. Overrides of `SocketManager.OnConnected` must call `base.OnConnected`: it registers the connection with the poll group that `Receive()` reads, so without it the host accepts connections but never receives their messages. `SendMessage(string)` allocates on every call; send `byte[]` or a pointer in real game traffic.
