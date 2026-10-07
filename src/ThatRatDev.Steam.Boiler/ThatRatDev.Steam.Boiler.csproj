@@ -5,21 +5,24 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>disable</ImplicitUsings>
-    <RootNamespace>TheDevRatt.Steam.Boiler</RootNamespace>
-    <AssemblyName>TheDevRatt.Steam.Boiler</AssemblyName>
+    <RootNamespace>ThatRatDev.Steam.Boiler</RootNamespace>
+    <AssemblyName>ThatRatDev.Steam.Boiler</AssemblyName>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <DebugType>embedded</DebugType>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
 
-    <PackageId>TheDevRatt.Steam.Boiler</PackageId>
-    <Version>0.3.2</Version>
+    <PackageId>ThatRatDev.Steam.Boiler</PackageId>
+    <Version>0.4.0</Version>
     <FacepunchVersion>2.5.2</FacepunchVersion>
-    <Authors>TheDevRatt</Authors>
+    <Authors>ThatRatDev</Authors>
+    <Copyright>Copyright (c) 2026 ThatRatDev</Copyright>
     <Product>Boiler</Product>
     <Description>Cross-platform native loading for Facepunch.Steamworks in Godot C# projects.</Description>
     <PackageTags>godot;steam;steamworks;facepunch;native;cross-platform;multiplayer</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.nuget.md</PackageReadmeFile>
-    <PackageProjectUrl>https://github.com/TheDevRatt/Boiler</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/TheDevRatt/Boiler.git</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/ThatRatDev/Boiler</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ThatRatDev/Boiler.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryCommit>$(SourceRevisionId)</RepositoryCommit>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
@@ -33,8 +36,8 @@
     <None Include="..\..\README.nuget.md" Pack="true" PackagePath="\" />
     <None Include="..\..\THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" />
 
-    <None Include="build\TheDevRatt.Steam.Boiler.props" Pack="true" PackagePath="build\" />
-    <None Include="build\TheDevRatt.Steam.Boiler.targets" Pack="true" PackagePath="build\" />
+    <None Include="build\ThatRatDev.Steam.Boiler.props" Pack="true" PackagePath="build\" />
+    <None Include="build\ThatRatDev.Steam.Boiler.targets" Pack="true" PackagePath="build\" />
     <None Include="build\BoilerAutoInit.cs" Pack="true" PackagePath="build\" />
 
     <None Include="steam\managed\Facepunch.Steamworks.Win64.dll" Pack="true" PackagePath="steam\managed\" />

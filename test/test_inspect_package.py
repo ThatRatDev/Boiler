@@ -25,11 +25,11 @@ class PackageInspectionTests(unittest.TestCase):
         return b"""<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
   <metadata>
-    <id>TheDevRatt.Steam.Boiler</id>
-    <version>0.3.2</version>
-    <projectUrl>https://github.com/TheDevRatt/Boiler</projectUrl>
+    <id>ThatRatDev.Steam.Boiler</id>
+    <version>0.4.0</version>
+    <projectUrl>https://github.com/ThatRatDev/Boiler</projectUrl>
     <license type="expression">MIT</license>
-    <repository type="git" url="https://github.com/TheDevRatt/Boiler.git" commit="abc123" />
+    <repository type="git" url="https://github.com/ThatRatDev/Boiler.git" commit="abc123" />
   </metadata>
 </package>
 """
@@ -56,25 +56,25 @@ class PackageInspectionTests(unittest.TestCase):
 
     def test_accepts_exact_package(self) -> None:
         self.write_package()
-        report = inspect_package.inspect_package(self.package, "0.3.2", "abc123")
+        report = inspect_package.inspect_package(self.package, "0.4.0", "abc123")
         self.assertIn("THIRD-PARTY-NOTICES.md", report)
 
     def test_rejects_missing_required_asset(self) -> None:
         missing = "steam/native/win-x64/steam_api64.dll"
         self.write_package(missing=missing)
         with self.assertRaisesRegex(inspect_package.PackageError, "missing package files"):
-            inspect_package.inspect_package(self.package, "0.3.2", "abc123")
+            inspect_package.inspect_package(self.package, "0.4.0", "abc123")
 
     def test_rejects_malformed_nuspec(self) -> None:
         self.write_package(malformed_nuspec=True)
         with self.assertRaises(ET.ParseError):
-            inspect_package.inspect_package(self.package, "0.3.2", "abc123")
+            inspect_package.inspect_package(self.package, "0.4.0", "abc123")
 
     def test_rejects_duplicate_archive_path(self) -> None:
         duplicate = "steam/native/win-x64/steam_api64.dll"
         self.write_package(duplicate=duplicate)
         with self.assertRaisesRegex(inspect_package.PackageError, "duplicate package path"):
-            inspect_package.inspect_package(self.package, "0.3.2", "abc123")
+            inspect_package.inspect_package(self.package, "0.4.0", "abc123")
 
 
 if __name__ == "__main__":

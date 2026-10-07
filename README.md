@@ -5,7 +5,7 @@ Boiler is a .NET 8 package that makes Facepunch.Steamworks native loading work i
 ## Install
 
 ```sh
-dotnet add package TheDevRatt.Steam.Boiler
+dotnet add package ThatRatDev.Steam.Boiler
 ```
 
 Use the normal Facepunch API:
@@ -19,11 +19,22 @@ GD.Print($"Steam: {SteamClient.Name}");
 
 The resolver is registered before game code runs. `SteamNative.Register()` is also public and idempotent if explicit registration is useful.
 
+### Migrating from `TheDevRatt.Steam.Boiler`
+
+Versions 0.3.2 and earlier were published as `TheDevRatt.Steam.Boiler`. From 0.4.0 the package ID and namespace are `ThatRatDev.Steam.Boiler`; the bundled binaries and behavior are unchanged.
+
+```sh
+dotnet remove package TheDevRatt.Steam.Boiler
+dotnet add package ThatRatDev.Steam.Boiler
+```
+
+If you call `SteamNative.Register()` explicitly, update `using TheDevRatt.Steam.Boiler;` to `using ThatRatDev.Steam.Boiler;`.
+
 Pass the App ID directly to `SteamClient.Init(appId)`; Facepunch sets the process environment for local runs. Shipping on Steam requires Steamworks partner access and compliance with Valve's terms.
 
 ## Bundled release
 
-Boiler 0.3.2 contains the managed and native files from the official [Facepunch.Steamworks 2.5.2 release](https://github.com/Facepunch/Facepunch.Steamworks/releases/tag/2.5.2).
+Boiler 0.4.0 contains the managed and native files from the official [Facepunch.Steamworks 2.5.2 release](https://github.com/Facepunch/Facepunch.Steamworks/releases/tag/2.5.2).
 
 | Target | Managed wrapper | Native library |
 | --- | --- | --- |

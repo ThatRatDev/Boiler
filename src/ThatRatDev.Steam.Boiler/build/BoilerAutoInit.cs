@@ -1,13 +1,13 @@
-// This file is compiled into the consumer by TheDevRatt.Steam.Boiler.props.
+// This file is compiled into the consumer by ThatRatDev.Steam.Boiler.props.
 // CA2255 is suppressed because automatic resolver registration is intentional.
 #pragma warning disable CA2255
 
-namespace TheDevRatt.Steam.Boiler.Generated
+namespace ThatRatDev.Steam.Boiler.Generated
 {
     internal static class BoilerAutoInit
     {
         [System.Runtime.CompilerServices.ModuleInitializer]
-        internal static void Initialize() => TheDevRatt.Steam.Boiler.SteamNative.Register();
+        internal static void Initialize() => ThatRatDev.Steam.Boiler.SteamNative.Register();
     }
 }
 

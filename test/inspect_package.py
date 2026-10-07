@@ -19,9 +19,9 @@ REQUIRED_FILES = EXPECTED_STEAM_ASSETS | {
     "README.nuget.md",
     "THIRD-PARTY-NOTICES.md",
     "build/BoilerAutoInit.cs",
-    "build/TheDevRatt.Steam.Boiler.props",
-    "build/TheDevRatt.Steam.Boiler.targets",
-    "lib/net8.0/TheDevRatt.Steam.Boiler.dll",
+    "build/ThatRatDev.Steam.Boiler.props",
+    "build/ThatRatDev.Steam.Boiler.targets",
+    "lib/net8.0/ThatRatDev.Steam.Boiler.dll",
 }
 
 
@@ -69,9 +69,9 @@ def inspect_package(path: Path, expected_version: str, expected_commit: str) -> 
             raise PackageError("nuspec metadata is missing")
 
     expected = {
-        "id": "TheDevRatt.Steam.Boiler",
+        "id": "ThatRatDev.Steam.Boiler",
         "version": expected_version,
-        "projectUrl": "https://github.com/TheDevRatt/Boiler",
+        "projectUrl": "https://github.com/ThatRatDev/Boiler",
         "license": "MIT",
     }
     for name, value in expected.items():
@@ -84,7 +84,7 @@ def inspect_package(path: Path, expected_version: str, expected_commit: str) -> 
         raise PackageError("repository metadata is missing")
     if repository.attrib.get("type") != "git":
         raise PackageError("repository type must be git")
-    if repository.attrib.get("url") != "https://github.com/TheDevRatt/Boiler.git":
+    if repository.attrib.get("url") != "https://github.com/ThatRatDev/Boiler.git":
         raise PackageError("repository URL is incorrect")
     if repository.attrib.get("commit") != expected_commit:
         raise PackageError("repository commit does not match the packed revision")
