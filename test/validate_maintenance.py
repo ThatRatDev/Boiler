@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = ROOT / "src" / "TheDevRatt.Steam.Boiler" / "TheDevRatt.Steam.Boiler.csproj"
+PACKAGE = ROOT / "src" / "ThatRatDev.Steam.Boiler" / "ThatRatDev.Steam.Boiler.csproj"
 GODOT = ROOT / "test" / "GodotSmoke"
 
 
@@ -24,9 +24,11 @@ def xml_text(root: ET.Element, name: str) -> str:
 
 def validate_package() -> None:
     root = ET.parse(PACKAGE).getroot()
-    require(xml_text(root, "Version") == "0.3.2", "package version must be 0.3.2")
-    require(xml_text(root, "PackageProjectUrl") == "https://github.com/TheDevRatt/Boiler", "PackageProjectUrl is missing")
-    require(xml_text(root, "RepositoryUrl") == "https://github.com/TheDevRatt/Boiler.git", "RepositoryUrl is missing")
+    require(xml_text(root, "PackageId") == "ThatRatDev.Steam.Boiler", "PackageId must be ThatRatDev.Steam.Boiler")
+    require(xml_text(root, "Authors") == "ThatRatDev", "package author must be ThatRatDev")
+    require(xml_text(root, "Version") == "0.4.0", "package version must be 0.4.0")
+    require(xml_text(root, "PackageProjectUrl") == "https://github.com/ThatRatDev/Boiler", "PackageProjectUrl is missing")
+    require(xml_text(root, "RepositoryUrl") == "https://github.com/ThatRatDev/Boiler.git", "RepositoryUrl is missing")
     require(xml_text(root, "RepositoryType") == "git", "RepositoryType must be git")
     require(xml_text(root, "RepositoryCommit") == "$(SourceRevisionId)", "RepositoryCommit must use SourceRevisionId")
     require(xml_text(root, "PackageLicenseExpression") == "MIT", "MIT package license metadata changed")
@@ -35,7 +37,7 @@ def validate_package() -> None:
 
 def validate_local_package_source(config_path: Path) -> None:
     root = ET.parse(config_path).getroot()
-    mapping = root.find("./packageSourceMapping/packageSource[@key='boiler-local']/package[@pattern='TheDevRatt.Steam.Boiler']")
+    mapping = root.find("./packageSourceMapping/packageSource[@key='boiler-local']/package[@pattern='ThatRatDev.Steam.Boiler']")
     require(mapping is not None, f"{config_path.relative_to(ROOT)} must map Boiler exclusively to the local CI feed")
 
 
@@ -60,8 +62,8 @@ def validate_godot_project() -> None:
 
     csproj = ET.parse(GODOT / "Boiler.GodotSmoke.csproj").getroot()
     require(csproj.attrib.get("Sdk") == "Godot.NET.Sdk/4.7.2", "smoke project must pin Godot.NET.Sdk 4.7.2")
-    package = csproj.find(".//PackageReference[@Include='TheDevRatt.Steam.Boiler']")
-    require(package is not None and package.attrib.get("Version") == "0.3.2", "smoke project must consume Boiler 0.3.2")
+    package = csproj.find(".//PackageReference[@Include='ThatRatDev.Steam.Boiler']")
+    require(package is not None and package.attrib.get("Version") == "0.4.0", "smoke project must consume Boiler 0.4.0")
 
     solution = (GODOT / "Boiler.GodotSmoke.sln").read_text(encoding="utf-8")
     require("ExportDebug|Any CPU = ExportDebug|Any CPU" in solution, "solution is missing ExportDebug configuration")

@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="TheDevRatt.Steam.Boiler" Version="0.3.2" />
+    <PackageReference Include="ThatRatDev.Steam.Boiler" Version="0.4.0" />
   </ItemGroup>
 
 </Project>

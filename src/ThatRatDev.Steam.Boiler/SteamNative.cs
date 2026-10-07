@@ -4,7 +4,7 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
-namespace TheDevRatt.Steam.Boiler;
+namespace ThatRatDev.Steam.Boiler;
 
 /// <summary>
 /// Resolves Facepunch.Steamworks native imports to the platform library copied
@@ -41,7 +41,17 @@ public static class SteamNative
             return;
         }
 
-        NativeLibrary.SetDllImportResolver(facepunch, Resolve);
+        // Runs from a module initializer, so an exception here would abort the consumer.
+        try
+        {
+            NativeLibrary.SetDllImportResolver(facepunch, Resolve);
+        }
+        catch (InvalidOperationException e)
+        {
+            Console.WriteLine($"[SteamNative] Another resolver is already registered for {assemblyName}: {e.Message}");
+            return;
+        }
+
         Console.WriteLine($"[SteamNative] Native resolver registered for {assemblyName}.");
     }
 

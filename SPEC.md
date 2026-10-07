@@ -1,7 +1,7 @@
 # Boiler technical design
 
 **Status:** Implemented
-**Package:** `TheDevRatt.Steam.Boiler`
+**Package:** `ThatRatDev.Steam.Boiler`
 **Runtime:** .NET 8 and Godot 4 C#
 
 ## Scope
@@ -33,7 +33,7 @@ The initializer calls `SteamNative.Register()`. The resolver attaches to the sel
 
 ## Upstream policy
 
-Version 0.3.2 pins the official Facepunch.Steamworks 2.5.2 release. Its two managed assemblies and three native libraries are kept as one matched set. Upgrades replace and validate all five files together from an official release archive. Unreleased upstream binaries are not substituted into a package that claims a stable release.
+Version 0.4.0 pins the official Facepunch.Steamworks 2.5.2 release. Its two managed assemblies and three native libraries are kept as one matched set. Upgrades replace and validate all five files together from an official release archive. Unreleased upstream binaries are not substituted into a package that claims a stable release.
 
 Facepunch.Steamworks 2.5.2 has a known SteamInput lifecycle defect. It does not explicitly initialize or shut down Steam Input and does not clear cached controller handles. This can produce zero detected controllers or stale handles after Steam shutdown and reinitialization. The upstream fix has not yet been published in a stable release.
 

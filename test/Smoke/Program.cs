@@ -1,6 +1,6 @@
 using System;
 using Steamworks;
-using TheDevRatt.Steam.Boiler;
+using ThatRatDev.Steam.Boiler;
 
 SteamNative.Register();
 
